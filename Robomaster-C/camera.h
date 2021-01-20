@@ -20,7 +20,6 @@ public:
     Camera(std::string filename);
     cv::Mat* GetAddress();
     void DummyWorkThread();
-    // void WorkThread(void* pUser);
     void WorkThread(void* pUser);
     void DisplayFeed(void* pUser);
 

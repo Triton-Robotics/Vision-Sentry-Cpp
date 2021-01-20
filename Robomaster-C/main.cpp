@@ -15,7 +15,7 @@ int main() {
     thread camera_thread;
     if (cam.input == 0) {
         // change function callback to function to test threading on
-        camera_thread = thread(&Camera::DisplayFeed, cam, cam.handle);
+        camera_thread = thread(&Camera::WorkThread, cam, cam.handle);
     }
     else {
         camera_thread = thread(&Camera::DummyWorkThread, cam);
@@ -29,7 +29,7 @@ int main() {
     // cam.WorkThread();
     //return 0;
     //cam.WorkThread(&cam);
-    cam.DisplayFeed(&cam);
+    //cam.DisplayFeed(&cam);
     return 0;
 }
 

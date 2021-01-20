@@ -4,6 +4,7 @@
 #include <conio.h>
 #include <thread>
 #include <exception>
+#include <string>
 #include "opencv2/core.hpp"
 #include "exception.h"
 
@@ -14,7 +15,7 @@ using namespace std;
 typedef HWND(WINAPI* PROCGETCONSOLEWINDOW)();
 PROCGETCONSOLEWINDOW GetConsoleWindowAPI;
 
-bool Convert2Mat(MV_FRAME_OUT_INFO_EX* pstImageInfo, unsigned char* pData, cv::Mat& srcImage);
+bool Convert2Mat(MV_CC_PIXEL_CONVERT_PARAM* pstImageInfo, unsigned char* pData, cv::Mat& srcImage);
 int RGB2BGR(unsigned char* pRgbData, unsigned int nWidth, unsigned int nHeight);
 
 
@@ -86,7 +87,9 @@ Camera::Camera() {
     if (MV_OK != ret) {
         printf("Get PayloadSize fail! ret [0x%x]\n", ret);
     }
-    nBufSize = stIntvalue.nCurValue + 2048; //One frame data size + reserved bytes (handled in SDK)
+    // get nCurValue
+    printf("nCurValue is: %d\n", stIntvalue.nCurValue);
+    nBufSize = stIntvalue.nCurValue * 2; //One frame data size + reserved bytes (handled in SDK) was 2048
     //payload_size = stParam.nCurValue;
 
     // new code 
@@ -169,66 +172,107 @@ void Camera::WorkThread(void* pUser) {
     memset(&stDisplayOneFrame, 0, sizeof(MV_DISPLAY_FRAME_INFO));
     int nTestFrameSize = 0;
     int nRet = -1;
+
+    stOutFrame.pBufAddr = pFrameBuf;
     // end new code
 
+    int frame_num = 0;
     while (1)
     {
-        if (nTestFrameSize > 99)
-        {
-            break;
-        }
-        //nRet = MV_CC_GetImageBuffer(handle, &stOutFrame, 1000);
+        //if (nTestFrameSize > 99)
+        //{
+        //    break;
+        //}
+        ////nRet = MV_CC_GetImageBuffer(handle, &stOutFrame, 1000);
         ret = MV_CC_GetOneFrameTimeout(pUser, pFrameBuf, nBufSize, &stInfo, 1000);
-        printf("pBuf: %s\n", pFrameBuf);
-        //printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
-        //stInfo.nWidth, stInfo.nHeight, stInfo.nFrameNum);
-        //printf("frame buffer: %d\n", strlen((const char*)pFrameBuf));
-        //printf("buffer specified size: %d\n", nBufSize);
-        if (MV_OK != nRet)
-        {
-            Sleep(10);
-        }
-        else
-        {
-            //...Process image data
-            nTestFrameSize++;
-        }
-        HMODULE hKernel32 = GetModuleHandle(L"kernel32");
-        GetConsoleWindowAPI = (PROCGETCONSOLEWINDOW)GetProcAddress(hKernel32, "GetConsoleWindow");
-        HWND hWnd = GetConsoleWindowAPI(); //window handle
+        //printf("pBuf: %s\n", pFrameBuf);
+        ////printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
+        ////stInfo.nWidth, stInfo.nHeight, stInfo.nFrameNum);
+        ////printf("frame buffer: %d\n", strlen((const char*)pFrameBuf));
+        ////printf("buffer specified size: %d\n", nBufSize);
+        //if (MV_OK != nRet)
+        //{
+        //    Sleep(10);
+        //}
+        //else
+        //{
+        //    //...Process image data
+        //    nTestFrameSize++;
+        //}
+        //HMODULE hKernel32 = GetModuleHandle(L"kernel32");
+        //GetConsoleWindowAPI = (PROCGETCONSOLEWINDOW)GetProcAddress(hKernel32, "GetConsoleWindow");
+        //HWND hWnd = GetConsoleWindowAPI(); //window handle
 
-        stDisplayOneFrame.hWnd = hWnd;
-        //_MV_FRAME_OUT_INFO_EX_ temp = stOutFrame.stFrameInfo;
-        unsigned char* garbo = (unsigned char*)malloc(sizeof(char) * 100);
-        stDisplayOneFrame.pData = pFrameBuf;        
-        stDisplayOneFrame.nDataLen = stInfo.nFrameLen;
-        stDisplayOneFrame.nWidth = stInfo.nWidth;
-        stDisplayOneFrame.nHeight = stInfo.nHeight;        
-        stDisplayOneFrame.enPixelType = stInfo.enPixelType;
+        //stDisplayOneFrame.hWnd = hWnd;
+        ////_MV_FRAME_OUT_INFO_EX_ temp = stOutFrame.stFrameInfo;
+        //unsigned char* garbo = (unsigned char*)malloc(sizeof(char) * 100);
+        //stDisplayOneFrame.pData = pFrameBuf;        
+        //stDisplayOneFrame.nDataLen = stInfo.nFrameLen;
+        //stDisplayOneFrame.nWidth = stInfo.nWidth;
+        //stDisplayOneFrame.nHeight = stInfo.nHeight;        
+        //stDisplayOneFrame.enPixelType = stInfo.enPixelType;
         //stDisplayOneFrame.enPixelType = PixelType_Gvsp_RGB8_Packed;
 
-        stInfo.enPixelType = PixelType_Gvsp_RGB8_Packed;
+        //stInfo.enPixelType = PixelType_Gvsp_RGB8_Packed;
+        
+        //Transform input and output parameter to pixel format.
+        //stOutFrame.stFrameInfo = stInfo;
+
+        MV_CC_PIXEL_CONVERT_PARAM stParam;
+        memset(&stParam, 0, sizeof(MV_CC_PIXEL_CONVERT_PARAM));
+
+        //Source data
+        stParam.pSrcData = pFrameBuf;              //Original image data
+        stParam.nSrcDataLen = stInfo.nFrameLen;         //Length of original image data
+        stParam.enSrcPixelType = stInfo.enPixelType;       //Pixel format of original image
+        stParam.nWidth = stInfo.nWidth;            //Image width
+        stParam.nHeight = stInfo.nHeight;           //Image height
+
+        //Target data
+        stParam.enDstPixelType = PixelType_Gvsp_RGB8_Packed;     //Pixel format type needs to be saved, it will transform to MONO8 format
+        stParam.nDstBufferSize = nBufSize;             //Size of storage node
+        unsigned char* pImage = (unsigned char*)malloc(nBufSize);
+        stParam.pDstBuffer = pImage;                   //Buffer for the output data,used to save the transformed data.
+
+        nRet = MV_CC_ConvertPixelType(pUser, &stParam);
+        if (MV_OK != nRet)
+        {
+            printf("ConvertPixelType Fail: [0x%x]\n", nRet);
+        }
+
+        //nRet = MV_CC_FreeImageBuffer(pUser, &stOutFrame);
+        //if (nRet != MV_OK) {
+        //    printf("FreeImageBuffer Fail: [0x%x]\n", nRet);
+        //}
+
+
         Mat img;
-        Convert2Mat(&stInfo, pFrameBuf, img);
+        Convert2Mat(&stParam, stParam.pDstBuffer, img);
         //imshow("Result", img);
-        imwrite("result.png", img);
-        cvWaitKey(0);
+        string img_name = "result";
+        string extension = ".png";
+        imwrite(img_name + to_string(frame_num) + extension, img);
 
         //printf("DisplayOneFrame pData: %s\n", stDisplayOneFrame.pData);
-        nRet = MV_CC_DisplayOneFrame(handle, &stDisplayOneFrame);
-        if (nRet != MV_OK) {
-            printf("Display one frame fail! nRet [0x%x]\n", nRet);
-        }
+        //nRet = MV_CC_DisplayOneFrame(handle, &stDisplayOneFrame);
+        //if (nRet != MV_OK) {
+        //    printf("Display one frame fail! nRet [0x%x]\n", nRet);
+        //}
 
         //stOutFrame.stFrameInfo = temp;
         //stOutFrame.pBufAddr = pFrameBuf;
         //nRet = MV_CC_GetImageBuffer(handle, &stOutFrame, 1000);
         //printf("pFrameBuf after ImgBuffer: %s\n", pFrameBuf);
-        nRet = MV_CC_FreeImageBuffer(handle, &stOutFrame);
-        if (nRet != MV_OK) {
-            printf("Free Image Buffer fail! nRet [0x%x]\n", nRet);
-            //printf("Error code for nRet: %d\n", nRet);
+        //nRet = MV_CC_FreeImageBuffer(handle, &stOutFrame);
+        //if (nRet != MV_OK) {
+        //    printf("Free Image Buffer fail! nRet [0x%x]\n", nRet);
+        //    //printf("Error code for nRet: %d\n", nRet);
+        //}
+
+        if (frame_num++ > 5) {
+            break;
         }
+
 
         // actually try to convert image data into usable form
         //MV_CC_PIXEL_CONVERT_PARAM stConvertParam = { 0 };
@@ -458,14 +502,14 @@ int RGB2BGR(unsigned char* pRgbData, unsigned int nWidth, unsigned int nHeight)
 
     return MV_OK;
 }
-bool Convert2Mat(MV_FRAME_OUT_INFO_EX* pstImageInfo, unsigned char* pData, cv::Mat& srcImage)
+bool Convert2Mat(MV_CC_PIXEL_CONVERT_PARAM* pstImageInfo, unsigned char* pData, cv::Mat& srcImage)
 {
-    if (pstImageInfo->enPixelType == PixelType_Gvsp_Mono8)
+    if (pstImageInfo->enDstPixelType == PixelType_Gvsp_Mono8)
     {
         cout << "PixelType = PixelType_Gvsp_Mono8" << std::endl;
         srcImage = cv::Mat(pstImageInfo->nHeight, pstImageInfo->nWidth, CV_8UC1, pData);
     }
-    else if (pstImageInfo->enPixelType == PixelType_Gvsp_RGB8_Packed)
+    else if (pstImageInfo->enDstPixelType == PixelType_Gvsp_RGB8_Packed)
     {
         RGB2BGR(pData, pstImageInfo->nWidth, pstImageInfo->nHeight);
         srcImage = cv::Mat(pstImageInfo->nHeight, pstImageInfo->nWidth, CV_8UC3, pData);
