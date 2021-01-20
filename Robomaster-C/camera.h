@@ -6,7 +6,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <Windows.h>
 
-
 class Camera {
 public:
 
@@ -21,7 +20,9 @@ public:
     Camera(std::string filename);
     cv::Mat* GetAddress();
     void DummyWorkThread();
+    // void WorkThread(void* pUser);
     void WorkThread(void* pUser);
+    void DisplayFeed(void* pUser);
 
 
 private:
@@ -31,6 +32,9 @@ private:
     unsigned int rgb_data_size;
     unsigned char* rgb_data_ptr;
     unsigned char* raw_data_ptr;
+    unsigned char* pFrameBuf;
+    unsigned int nBufSize;
+    MV_FRAME_OUT_INFO_EX stInfo;
     MV_FRAME_OUT_INFO_EX image_info;
     int ret;
 
