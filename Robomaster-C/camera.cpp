@@ -5,8 +5,10 @@
 #include <thread>
 #include <exception>
 #include <string>
+#include <vld.h>
 #include "opencv2/core.hpp"
 #include "exception.h"
+#include "detector.h"
 
 
 using namespace cv;
@@ -89,7 +91,8 @@ Camera::Camera() {
     }
     // get nCurValue
     printf("nCurValue is: %d\n", stIntvalue.nCurValue);
-    nBufSize = stIntvalue.nCurValue * 2; //One frame data size + reserved bytes (handled in SDK) was 2048
+    // buffer size - need to be made more efficient sizewise - was * 2 1.49 was too small  1.5 works 
+    nBufSize = stIntvalue.nCurValue * 1.50; //One frame data size + reserved bytes (handled in SDK) was 2048
     //payload_size = stParam.nCurValue;
 
     // new code 
@@ -98,7 +101,7 @@ Camera::Camera() {
     pFrameBuf = NULL;
     pFrameBuf = (unsigned char*)malloc(nBufSize);
     // test to see if pFrameBuf is overwritten during image acquisition
-    *pFrameBuf = 'c';
+    //*pFrameBuf = 'c';
 
     memset(&stInfo, 0, sizeof(MV_FRAME_OUT_INFO_EX));
 
@@ -164,6 +167,8 @@ void Camera::WorkThread(void* pUser) {
     vector<vector<Point>> contours;
     vector<Vec4i> hierarchy;
 
+    Detector detector;
+
     // Test one frame display
 
     MV_FRAME_OUT stOutFrame;
@@ -173,8 +178,13 @@ void Camera::WorkThread(void* pUser) {
     int nTestFrameSize = 0;
     int nRet = -1;
 
-    stOutFrame.pBufAddr = pFrameBuf;
+    MV_CC_PIXEL_CONVERT_PARAM stParam;
+    memset(&stParam, 0, sizeof(MV_CC_PIXEL_CONVERT_PARAM));
+
+    //stOutFrame.pBufAddr = pFrameBuf;
     // end new code
+
+    unsigned char* pImage = (unsigned char*)malloc(nBufSize);
 
     int frame_num = 0;
     while (1)
@@ -184,7 +194,19 @@ void Camera::WorkThread(void* pUser) {
         //    break;
         //}
         ////nRet = MV_CC_GetImageBuffer(handle, &stOutFrame, 1000);
-        ret = MV_CC_GetOneFrameTimeout(pUser, pFrameBuf, nBufSize, &stInfo, 1000);
+        
+        // test pFrameBuf init inside loop for memory leaks
+   /*     pFrameBuf = NULL;
+        pFrameBuf = (unsigned char*)malloc(nBufSize);*/
+
+        //ret = MV_CC_GetOneFrameTimeout(pUser, pFrameBuf, nBufSize, &stInfo, 1000);
+        nRet = MV_CC_GetImageBuffer(handle, &stOutFrame, 1000);
+        if (MV_OK != nRet)
+        {
+            printf("Jank did not work\n");
+        }
+        //printf("Address after getImageBuffer: %p\n", stOutFrame.pBufAddr);
+
         //printf("pBuf: %s\n", pFrameBuf);
         ////printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
         ////stInfo.nWidth, stInfo.nHeight, stInfo.nFrameNum);
@@ -218,20 +240,29 @@ void Camera::WorkThread(void* pUser) {
         //Transform input and output parameter to pixel format.
         //stOutFrame.stFrameInfo = stInfo;
 
-        MV_CC_PIXEL_CONVERT_PARAM stParam;
-        memset(&stParam, 0, sizeof(MV_CC_PIXEL_CONVERT_PARAM));
+        ////Source data
+        //stParam.pSrcData = pFrameBuf;              //Original image data - is pFrameBuf
+        //stParam.nSrcDataLen = stInfo.nFrameLen;         //Length of original image data
+        //stParam.enSrcPixelType = stInfo.enPixelType;       //Pixel format of original image
+        //stParam.nWidth = stInfo.nWidth;            //Image width
+        //stParam.nHeight = stInfo.nHeight;           //Image height
 
-        //Source data
-        stParam.pSrcData = pFrameBuf;              //Original image data
-        stParam.nSrcDataLen = stInfo.nFrameLen;         //Length of original image data
-        stParam.enSrcPixelType = stInfo.enPixelType;       //Pixel format of original image
-        stParam.nWidth = stInfo.nWidth;            //Image width
-        stParam.nHeight = stInfo.nHeight;           //Image height
+        ////Target data
+        //stParam.enDstPixelType = PixelType_Gvsp_RGB8_Packed;     //Pixel format type needs to be saved, it will transform to MONO8 format
+        //stParam.nDstBufferSize = nBufSize;             //Size of storage node
+        //unsigned char* pImage = (unsigned char*)malloc(nBufSize);
+        //stParam.pDstBuffer = pImage;                   //Buffer for the output data,used to save the transformed data.
+
+                //Source data
+        stParam.pSrcData = stOutFrame.pBufAddr;              //Original image data - is pFrameBuf
+        stParam.nSrcDataLen = stOutFrame.stFrameInfo.nFrameLen;         //Length of original image data
+        stParam.enSrcPixelType = stOutFrame.stFrameInfo.enPixelType;       //Pixel format of original image
+        stParam.nWidth = stOutFrame.stFrameInfo.nWidth;            //Image width
+        stParam.nHeight = stOutFrame.stFrameInfo.nHeight;           //Image height
 
         //Target data
         stParam.enDstPixelType = PixelType_Gvsp_RGB8_Packed;     //Pixel format type needs to be saved, it will transform to MONO8 format
         stParam.nDstBufferSize = nBufSize;             //Size of storage node
-        unsigned char* pImage = (unsigned char*)malloc(nBufSize);
         stParam.pDstBuffer = pImage;                   //Buffer for the output data,used to save the transformed data.
 
         nRet = MV_CC_ConvertPixelType(pUser, &stParam);
@@ -240,18 +271,42 @@ void Camera::WorkThread(void* pUser) {
             printf("ConvertPixelType Fail: [0x%x]\n", nRet);
         }
 
-        //nRet = MV_CC_FreeImageBuffer(pUser, &stOutFrame);
-        //if (nRet != MV_OK) {
-        //    printf("FreeImageBuffer Fail: [0x%x]\n", nRet);
-        //}
-
-
         Mat img;
         Convert2Mat(&stParam, stParam.pDstBuffer, img);
         //imshow("Result", img);
         string img_name = "result";
         string extension = ".png";
-        imwrite(img_name + to_string(frame_num) + extension, img);
+
+        // uncomment to see saved results
+        //imwrite(img_name + to_string(frame_num) + extension, img);
+
+        // run detector on provided image
+        detector.DetectLive(img);
+
+
+        // show images from live camera feed - this works
+        imshow("cam", img);
+        if (waitKey(5) >= 0) {
+            break;
+        }
+
+        //printf("Address before free: %p\n", stOutFrame.pBufAddr);
+        nRet = MV_CC_FreeImageBuffer(handle, &stOutFrame);
+        if (nRet != MV_OK) {
+            printf("Free Image Buffer fail! nRet [0x%x]\n", nRet);
+        }
+        //free(stOutFrame.pBufAddr);
+
+        // TODO - failing here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //delete [] stOutFrame.pBufAddr;
+        //stOutFrame.pBufAddr = 0;
+        //printf("after delete\n");
+        //stOutFrame.pBufAddr = NULL;
+        //printf("Address after free: %x\n", stOutFrame.pBufAddr);
+
+
+        //free(pFrameBuf);
+        //pFrameBuf = NULL;
 
         //printf("DisplayOneFrame pData: %s\n", stDisplayOneFrame.pData);
         //nRet = MV_CC_DisplayOneFrame(handle, &stDisplayOneFrame);
@@ -269,9 +324,10 @@ void Camera::WorkThread(void* pUser) {
         //    //printf("Error code for nRet: %d\n", nRet);
         //}
 
-        if (frame_num++ > 5) {
-            break;
-        }
+        // uncomment to break after certain number of frames
+        //if (frame_num++ > 100) {
+        //    break;
+        //}
 
 
         // actually try to convert image data into usable form
@@ -387,6 +443,35 @@ void Camera::WorkThread(void* pUser) {
     //}
 
     //free(raw_data_ptr);
+    free(pFrameBuf);
+    pFrameBuf = NULL;
+
+    //free(detector);
+    //detector = NULL;
+
+    //Stop image acquisition
+    nRet = MV_CC_StopGrabbing(handle);
+    if (MV_OK != nRet)
+    {
+        printf("error: StopGrabbing fail [%x]\n", nRet);
+        return;
+    }
+
+    //Close device, and release resource
+    nRet = MV_CC_CloseDevice(handle);
+    if (MV_OK != nRet)
+    {
+        printf("error: CloseDevice fail [%x]\n", nRet);
+        return;
+    }
+
+    //Destroy handle and release resource
+    nRet = MV_CC_DestroyHandle(handle);
+    if (MV_OK != nRet)
+    {
+        printf("error: DestroyHandle fail [%x]\n", nRet);
+        return;
+    }
 }
 
 void Camera::DisplayFeed(void* pUser) {

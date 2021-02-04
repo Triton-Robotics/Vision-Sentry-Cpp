@@ -6,18 +6,25 @@
 
 class Detector {
 public:
-    static Detector& get(cv::Mat* ptr) {
-        static Detector instance(ptr);
-        return instance;
-    };
-    static void Detect();
+    //static Detector& get(cv::Mat* ptr) {
+    //    static Detector instance(ptr);
+    //    return instance;
+    //};
+    //static void Detect();
+
+    // new code
+    Detector();
+    ~Detector() = default;
+
+    // new code
+    void DetectLive(cv::Mat &input);
 
 private:
     static cv::Mat* addr;
     Detector(cv::Mat* ptr) {
         addr = ptr;
     };
-    ~Detector() = default;
+    //~Detector() = default;
     Detector(const Detector&) = delete;
     Detector& operator=(const Detector&) = delete;
 };

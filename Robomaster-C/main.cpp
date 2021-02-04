@@ -21,15 +21,17 @@ int main() {
         camera_thread = thread(&Camera::DummyWorkThread, cam);
     }
 
-    ////cv::Mat* addr = cam.GetAddress();
-    ////Detector& detector = Detector::get(addr);
-    ////runFPS(detector.Detect, 100);
+    //////cv::Mat* addr = cam.GetAddress();
+    //////Detector& detector = Detector::get(addr);
+    //////runFPS(detector.Detect, 100);
 
     camera_thread.join();
     // cam.WorkThread();
     //return 0;
     //cam.WorkThread(&cam);
     //cam.DisplayFeed(&cam);
+
+    //cam.WorkThread(&cam);
     return 0;
 }
 

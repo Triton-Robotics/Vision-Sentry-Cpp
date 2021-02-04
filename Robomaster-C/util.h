@@ -2,7 +2,8 @@
 #include <functional>
 #include <opencv2/core/core.hpp>
 
-#define DEBUG 1
+// changed to 0
+#define DEBUG 0
 
 // some enums, don't touch
 const enum class LightState { NONE, ALL, NO_ERROR, ANGLE_ERROR, RATIO_ERROR, AREA_ERROR };
