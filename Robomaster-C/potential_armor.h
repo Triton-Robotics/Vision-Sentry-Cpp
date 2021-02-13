@@ -20,6 +20,8 @@ public:
     bool matchArea();
     bool matchHeight();
     bool matchY();
+    bool checkProportion();
+    double* getDistance();
     cv::Point2f getCenter();
     std::vector<cv::Point2f> getCorners();
     ArmorState validate();

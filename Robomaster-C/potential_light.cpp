@@ -62,9 +62,15 @@ PotentialLight::PotentialLight(RotatedRect box) {
     float degrees = atan2(bottom.y - top.y, top.x - bottom.x) * 180 / CV_PI;
     string deg = to_string(degrees);
 
-    putText(light_check, deg, Point2f(box.center.x + 50, box.center.y + 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
+    //putText(light_check, deg, Point2f(box.center.x + 50, box.center.y + 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
 
-    putText(light_check, angle, Point2f(box.center.x + 50, box.center.y), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255));
+    //putText(light_check, angle, Point2f(box.center.x + 50, box.center.y), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255));
+
+    // check areas of potential lights
+    //putText(light_check, to_string(getWidth() * getHeight()), Point2f(box.center.x + 50, box.center.y + 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
+    putText(light_check, to_string(getWidth()), Point2f(box.center.x, box.center.y + 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
+    putText(light_check, to_string(getHeight()), Point2f(box.center.x, box.center.y + 100), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+
     imshow("angles", light_check);
 };
 
@@ -135,7 +141,7 @@ LightState PotentialLight::validate() {
 
     float area = width * height;
     // light should not be too big or small (100 might be a good value)
-    if (area < 100) {
+    if (area < 300) {
         //printf("wrong area: %f\n", area); 
         return LightState::AREA_ERROR;
     }

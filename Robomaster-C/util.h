@@ -7,7 +7,7 @@
 
 // some enums, don't touch
 const enum class LightState { NONE, ALL, NO_ERROR, ANGLE_ERROR, RATIO_ERROR, AREA_ERROR };
-const enum class ArmorState { NONE, ALL, NO_ERROR, ANGLE_ERROR, HEIGHT_ERROR, Y_ERROR };
+const enum class ArmorState { NONE, ALL, NO_ERROR, ANGLE_ERROR, HEIGHT_ERROR, Y_ERROR, PROP_ERROR };
 
 // debug parameter
 const LightState LIGHT_VIS_TYPE = LightState::NO_ERROR;

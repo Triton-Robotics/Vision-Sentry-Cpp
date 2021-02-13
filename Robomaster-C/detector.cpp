@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <conio.h>
 #include <thread>
+#include <limits>
 #include <iostream>
 
 using namespace cv;
@@ -158,14 +159,49 @@ void Detector::DetectLive(Mat &input) {
 
 #endif // DEBUG
 
-            vector<Point2f> corners = armor.getCorners();
+            //vector<Point2f> corners = armor.getCorners();
 
-            Scalar color = Scalar(255, 255, 0);
-            cv::line(raw, corners[0], corners[1], color, 1, 8);
-            cv::line(raw, corners[1], corners[3], color, 1, 8);
-            cv::line(raw, corners[3], corners[2], color, 1, 8);
-            cv::line(raw, corners[2], corners[0], color, 1, 8);
+            //Scalar color = Scalar(255, 255, 0);
+            //cv::line(raw, corners[0], corners[1], color, 1, 8);
+            //cv::line(raw, corners[1], corners[3], color, 1, 8);
+            //cv::line(raw, corners[3], corners[2], color, 1, 8);
+            //cv::line(raw, corners[2], corners[0], color, 1, 8);
         }
+    }
+
+    // add code here to filter out to only get 1 pair that we want
+    // if you have an odd number of valid lightbars, for ex if you have 3, then you know there's only max 1 armor plate
+    // compute minimal distance and store armor with minimal distance into final_armor
+    double min_distance = DBL_MAX;
+    PotentialArmor final_armor;
+
+    for (auto valid_armor : armors) {
+        //vector<Point2f> corners = valid_armor.getCorners();
+        //Scalar color = Scalar(255, 255, 0);
+        //cv::line(raw, corners[0], corners[1], color, 1, 8);
+        //cv::line(raw, corners[1], corners[3], color, 1, 8);
+        //cv::line(raw, corners[3], corners[2], color, 1, 8);
+        //cv::line(raw, corners[2], corners[0], color, 1, 8);
+
+ /*       putText(raw, to_string(valid_armor.getDistance()[0]), Point2f(corners[0].x, corners[0].y + 10), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
+        putText(raw, to_string(valid_armor.getDistance()[1]), Point2f(corners[3].x, corners[3].y + 10), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));*/
+
+
+        if (min_distance > valid_armor.getDistance()[0]) {
+            min_distance = valid_armor.getDistance()[0];
+            final_armor = valid_armor;
+        }
+    }
+
+    // if final_armor not null, then draw result
+    if (min_distance != DBL_MAX) {
+        vector<Point2f> corners = final_armor.getCorners();
+        Scalar color = Scalar(255, 255, 0);
+        cv::line(raw, corners[0], corners[1], color, 1, 8);
+        cv::line(raw, corners[1], corners[3], color, 1, 8);
+        cv::line(raw, corners[3], corners[2], color, 1, 8);
+        cv::line(raw, corners[2], corners[0], color, 1, 8);
+        circle(raw, final_armor.getCenter(), 15, Scalar(0, 255, 0), -1);
     }
 
     input = raw;

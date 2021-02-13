@@ -86,6 +86,47 @@ vector<Point2f> PotentialArmor::getCorners() {
     return corners;
 }
 
+double* PotentialArmor::getDistance() {
+    // get top and bottom width distances for each pair of lights passed in 
+    double top_distance = sqrt(pow((light1.getTop().x - light2.getTop().x), 2) + pow((light1.getTop().y - light2.getTop().y), 2));
+    double bot_distance = sqrt(pow((light1.getBottom().x - light2.getBottom().x), 2) + pow((light1.getBottom().y - light2.getBottom().y), 2));
+    double arr[2] = { top_distance, bot_distance };
+    return arr;
+}
+
+// new function added 
+bool PotentialArmor::checkProportion() {
+    // set up variables - get distances and set up max containers for each
+    double max_height = light1.getHeight();
+    double distance1 = getDistance()[0];
+    double distance2 = getDistance()[1];
+    double max_distance = distance1;
+
+    // check up maxes for both calculated distance and width
+    if (max_height < light2.getHeight()) {
+        max_height = light2.getHeight();
+    }
+
+    if (max_distance < distance2) {
+        max_distance = distance2;
+    }
+
+    // write proportion checks - checks to see if the height is within 3 times max distance
+    // and checks to make sure that max height is less than max distance (wouldn't make sense for an
+    // armor plate to have a larger height than it's width, but might want to double check this)
+    if (max_height > max_distance) {
+        return false;
+    }
+
+    if (max_height * 1.5 > max_distance) {
+        return false;
+    }
+
+    return true;
+}
+
+// TODO: maybe add a width height proportion check aka if max distance is smaller than max height, ignore
+// and maybe if max height * 3 is smaller than the max width for the distance, then also dont include those
 ArmorState PotentialArmor::validate() {
     if (!matchAngle()) {
         return ArmorState::ANGLE_ERROR;
@@ -95,6 +136,9 @@ ArmorState PotentialArmor::validate() {
     }
     else if (!matchY()) {
         return ArmorState::Y_ERROR;
+    }
+    else if (!checkProportion()) { // new check added to code
+        return ArmorState::PROP_ERROR;
     }
     else {
         return ArmorState::NO_ERROR;
