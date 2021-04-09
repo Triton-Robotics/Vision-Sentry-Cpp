@@ -10,7 +10,6 @@ using namespace std;
 
 int main() {
 
-    //Camera cam = Camera("sample_multiple.jpg");
     Camera cam = Camera();
     thread camera_thread;
     if (cam.input == 0) {
@@ -21,17 +20,8 @@ int main() {
         camera_thread = thread(&Camera::DummyWorkThread, cam);
     }
 
-    //////cv::Mat* addr = cam.GetAddress();
-    //////Detector& detector = Detector::get(addr);
-    //////runFPS(detector.Detect, 100);
-
     camera_thread.join();
-    // cam.WorkThread();
-    //return 0;
-    //cam.WorkThread(&cam);
-    //cam.DisplayFeed(&cam);
-
-    //cam.WorkThread(&cam);
+ 
     return 0;
 }
 

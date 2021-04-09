@@ -4,6 +4,7 @@
 
 // changed to 0
 #define DEBUG 0
+#define COLOR 1 // 1 for blue, 0 for red
 
 // some enums, don't touch
 const enum class LightState { NONE, ALL, NO_ERROR, ANGLE_ERROR, RATIO_ERROR, AREA_ERROR };

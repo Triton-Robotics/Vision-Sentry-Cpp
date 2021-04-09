@@ -16,7 +16,6 @@ PotentialArmor::PotentialArmor(PotentialLight one, PotentialLight two) {
 
 bool PotentialArmor::matchAngle() {
     float difference = light1.getAngle() - light2.getAngle();
-    //printf("%f\n", difference);
     return abs(difference) < 20;
 }
 
@@ -35,24 +34,17 @@ bool PotentialArmor::matchHeight() {
 
     float prop_heights = height1 / height2;
 
-    //printf("%f\n", propWidths);
-
     return (prop_heights < 1.5 && prop_heights > 0.5);
 }
 
 bool PotentialArmor::matchY() {
+    // top and bottom y pos of each lightbar with buffer offset
     // added 10 for buffer
     float top1 = light1.getTop().y - 10;
     float bottom1 = light1.getBottom().y + 10;
 
-    //printf("Potential armor y-check:\n");
-
-    //printf("one: %f, %f\n", top1, bottom1);
-
     float top2 = light2.getTop().y - 10;
     float bottom2 = light2.getBottom().y + 10;
-
-    //printf("two: %f, %f\n\n", top2, bottom2);
 
     // is the top of two in the y-bounds of one?
     if (top2 <= bottom1 && top2 >= top1) {
@@ -70,8 +62,6 @@ bool PotentialArmor::matchY() {
     else if (bottom1 <= bottom2 && bottom1 >= top2) {
         return true;
     }
-
-    //printf("Failed!\n\n");
 
     return false;
 }
@@ -118,15 +108,9 @@ bool PotentialArmor::checkProportion() {
         return false;
     }
 
-    if (max_height * 1.5 > max_distance) {
-        return false;
-    }
-
     return true;
 }
 
-// TODO: maybe add a width height proportion check aka if max distance is smaller than max height, ignore
-// and maybe if max height * 3 is smaller than the max width for the distance, then also dont include those
 ArmorState PotentialArmor::validate() {
     if (!matchAngle()) {
         return ArmorState::ANGLE_ERROR;
@@ -137,7 +121,7 @@ ArmorState PotentialArmor::validate() {
     else if (!matchY()) {
         return ArmorState::Y_ERROR;
     }
-    else if (!checkProportion()) { // new check added to code
+    else if (!checkProportion()) { 
         return ArmorState::PROP_ERROR;
     }
     else {

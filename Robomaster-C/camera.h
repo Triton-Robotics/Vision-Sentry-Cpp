@@ -10,9 +10,6 @@
 class Camera {
 public:
 
-    //typedef HWND(WINAPI* PROCGETCONSOLEWINDOW)();
-    //PROCGETCONSOLEWINDOW GetConsoleWindowAPI;
-
     cv::Mat* image_ptr;
     int input;
     void* handle;

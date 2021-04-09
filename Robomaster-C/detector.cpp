@@ -13,38 +13,44 @@ using namespace std;
 
 cv::Mat* Detector::addr = NULL;
 
-// new code
-
 Detector::Detector() {
 
 }
 
-// changed from Detect 
 void Detector::DetectLive(Mat &input) {
-    // opencv declaration
-    // removed input from declaration list
-    Mat raw, hsv, mask, raw_debug, mask_debug;
+    Mat raw, hsv, blue_mask, red_mask, mask, raw_debug, mask_debug, color_mask, mask_results;
     vector<vector<Point>> contours;
     vector<Vec4i> hierarchy;
 
-   /* input = *addr;*/
-    resize(input, raw, Size(640, 512));
+    // color ranges for checking team colors
+    Scalar low_blue(140, 0, 0); 
+    Scalar high_blue(255, 255, 255); 
+
+    Scalar low_red(0, 0, 200);
+    Scalar high_red(255, 255, 255);
+
+    resize(input, raw, Size(640, 512)); // center is (320, 256)
     cvtColor(raw, hsv, CV_RGB2HSV);
 
-    inRange(hsv, Scalar(105, 200, 50), Scalar(135, 255, 255), mask);
-    cvtColor(hsv, mask, COLOR_HSV2RGB);
-    cvtColor(mask, mask, COLOR_RGB2GRAY);
-    //threshold(mask, mask, 0, 255, THRESH_BINARY);
-    mask.convertTo(mask, CV_8UC1, 255.0);
-    //threshold(mask, mask, 0, 255, THRESH_BINARY);
-    dilate(mask, mask, Mat(), Point(-1, -1), 2, 1, 1);
-    findContours(mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+    // choose which mask to use based on the team color - change the color ENUM in util.h for now
+    if (COLOR) {
+        inRange(raw, low_blue, high_blue, color_mask);
+    }
+    else {
+        inRange(raw, low_red, high_red, color_mask);
+    }
+
+    // make regions thicker and make all shades of white above 127 255 for noise removal
+    threshold(color_mask, color_mask, 127, 255, THRESH_BINARY);
+    dilate(color_mask, color_mask, Mat(), Point(-1, -1), 2, 1, 1);
+
+    // applying filtered regions from mask to raw image data
+    bitwise_and(raw, raw, mask=color_mask);
+
+    findContours(color_mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
     // try draw contours 
-    drawContours(raw, contours, -1, Scalar(0, 255, 255), 8, FILLED);
-    //printf("contour size, %d\n", contours.size());
-
-    //input = raw; // new code - not sure if this will work
+    //drawContours(raw, contours, -1, Scalar(0, 255, 255), 8, FILLED);
 
 #if DEBUG
     raw_debug = raw.clone();
@@ -55,6 +61,7 @@ void Detector::DetectLive(Mat &input) {
     vector<PotentialLight> lights;
     Mat light_check = Mat(512, 640, CV_8UC3); // test for loop results
 
+    // go through all contours and run validation checks
     for (int i = 0; i < contours.size(); i++) {
         PotentialLight light = PotentialLight(minAreaRect(contours[i]));
         LightState light_state = light.validate();
@@ -111,10 +118,9 @@ void Detector::DetectLive(Mat &input) {
 
     }
 
-    imshow("good lights", light_check);
-
     vector<PotentialArmor> armors;
     // Get the center point of the plate
+    // go through every single possible pairs of light bar and run validation checks on each pair
     for (int i = 0; i < lights.size(); i++) {
         for (int j = i + 1; j < lights.size(); j++) {
 
@@ -158,62 +164,45 @@ void Detector::DetectLive(Mat &input) {
             //line(mask_debug, corners[2], corners[0], color, 1, 8);
 
 #endif // DEBUG
-
-            //vector<Point2f> corners = armor.getCorners();
-
-            //Scalar color = Scalar(255, 255, 0);
-            //cv::line(raw, corners[0], corners[1], color, 1, 8);
-            //cv::line(raw, corners[1], corners[3], color, 1, 8);
-            //cv::line(raw, corners[3], corners[2], color, 1, 8);
-            //cv::line(raw, corners[2], corners[0], color, 1, 8);
         }
     }
-
-    // add code here to filter out to only get 1 pair that we want
-    // if you have an odd number of valid lightbars, for ex if you have 3, then you know there's only max 1 armor plate
-    // compute minimal distance and store armor with minimal distance into final_armor
+    
+    // set up variables for choosing armor closest to center
     double min_distance = DBL_MAX;
+    double closest_to_center = DBL_MAX;
+    double distance_to_center = 0;
     PotentialArmor final_armor;
 
     for (auto valid_armor : armors) {
-        //vector<Point2f> corners = valid_armor.getCorners();
-        //Scalar color = Scalar(255, 255, 0);
-        //cv::line(raw, corners[0], corners[1], color, 1, 8);
-        //cv::line(raw, corners[1], corners[3], color, 1, 8);
-        //cv::line(raw, corners[3], corners[2], color, 1, 8);
-        //cv::line(raw, corners[2], corners[0], color, 1, 8);
 
- /*       putText(raw, to_string(valid_armor.getDistance()[0]), Point2f(corners[0].x, corners[0].y + 10), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 0));
-        putText(raw, to_string(valid_armor.getDistance()[1]), Point2f(corners[3].x, corners[3].y + 10), CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));*/
+        // compute the distance to the center from center of current valid armor and center of camera
+        distance_to_center = sqrt(pow((320 - valid_armor.getCenter().x), 2) + pow((256 - valid_armor.getCenter().y), 2));
 
-
-        if (min_distance > valid_armor.getDistance()[0]) {
-            min_distance = valid_armor.getDistance()[0];
+        if (distance_to_center < closest_to_center) {
+            closest_to_center = distance_to_center;
             final_armor = valid_armor;
         }
+
+
+        //if (min_distance > valid_armor.getDistance()[0]) {
+        //    min_distance = valid_armor.getDistance()[0];
+        //    final_armor = valid_armor;
+        //}
     }
 
     // if final_armor not null, then draw result
-    if (min_distance != DBL_MAX) {
-        vector<Point2f> corners = final_armor.getCorners();
-        Scalar color = Scalar(255, 255, 0);
-        cv::line(raw, corners[0], corners[1], color, 1, 8);
-        cv::line(raw, corners[1], corners[3], color, 1, 8);
-        cv::line(raw, corners[3], corners[2], color, 1, 8);
-        cv::line(raw, corners[2], corners[0], color, 1, 8);
-        circle(raw, final_armor.getCenter(), 15, Scalar(0, 255, 0), -1);
+    if (closest_to_center != DBL_MAX) {
+        // TODO return coordinate of detected result
     }
 
     input = raw;
 
-    //input = mask_debug;
+#if DEBUG
 
-//#if DEBUG
-//
-//    imshow("red", mask_debug);
-//    imshow("raw image", raw_debug);
-//
-//    waitKey(0);
-//
-//#endif // DEBUG
+    imshow("red", mask_debug);
+    imshow("raw image", raw_debug);
+
+    waitKey(0);
+
+#endif // DEBUG
 }
