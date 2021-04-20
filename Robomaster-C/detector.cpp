@@ -14,7 +14,8 @@ using namespace std;
 cv::Mat* Detector::addr = NULL;
 
 Detector::Detector() {
-
+    prev_center = Point2f(320, 256);
+    prev_distance = 410; // diagonal frame distance from the center
 }
 
 void Detector::DetectLive(Mat &input) {
@@ -170,16 +171,20 @@ void Detector::DetectLive(Mat &input) {
     // set up variables for choosing armor closest to center
     double min_distance = DBL_MAX;
     double closest_to_center = DBL_MAX;
+    double closest_to_prev = DBL_MAX;
     double distance_to_center = 0;
+    double distance_to_prev = 0;
+    double radius_scaler = 2;
     PotentialArmor final_armor;
 
     for (auto valid_armor : armors) {
 
         // compute the distance to the center from center of current valid armor and center of camera
         distance_to_center = sqrt(pow((320 - valid_armor.getCenter().x), 2) + pow((256 - valid_armor.getCenter().y), 2));
+        distance_to_prev = sqrt(pow((prev_center.x - valid_armor.getCenter().x), 2) + pow((prev_center.y - valid_armor.getCenter().y), 2));
 
-        if (distance_to_center < closest_to_center) {
-            closest_to_center = distance_to_center;
+        if (distance_to_prev < closest_to_prev) {
+            closest_to_prev = distance_to_prev;
             final_armor = valid_armor;
         }
 
@@ -190,9 +195,17 @@ void Detector::DetectLive(Mat &input) {
         //}
     }
 
+    // 
+
     // if final_armor not null, then draw result
-    if (closest_to_center != DBL_MAX) {
+    if (closest_to_prev <= radius_scaler * prev_distance) {
+        prev_center = final_armor.getCenter();
+        prev_distance = final_armor.getDistance[0];
         // TODO return coordinate of detected result
+    } else {
+        // reset to defaults
+        prev_center = Point2f(320, 256);
+        prev_distance = 410;
     }
 
     input = raw;

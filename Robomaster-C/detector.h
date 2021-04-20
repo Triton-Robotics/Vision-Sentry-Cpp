@@ -14,6 +14,9 @@ public:
 
 private:
     static cv::Mat* addr;
+    cv::Point2f prev_center;
+    double prev_distance;
+    double prev_area;
     Detector(cv::Mat* ptr) {
         addr = ptr;
     };
