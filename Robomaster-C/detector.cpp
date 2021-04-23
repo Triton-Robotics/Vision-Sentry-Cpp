@@ -16,6 +16,7 @@ cv::Mat* Detector::addr = NULL;
 Detector::Detector() {
     prev_center = Point2f(320, 256);
     prev_distance = 410; // diagonal frame distance from the center
+	count_frames_no_robot = 0;
 }
 
 void Detector::DetectLive(Mat &input) {
@@ -174,7 +175,10 @@ void Detector::DetectLive(Mat &input) {
     double closest_to_prev = DBL_MAX;
     double distance_to_center = 0;
     double distance_to_prev = 0;
-    double radius_scaler = 2;
+    
+	// Needs testing
+	double radius_scaler = 2; 
+	int max_frames_no_robot = 45; // ~.5 seconds based on 90 fps
     PotentialArmor final_armor;
 
     for (auto valid_armor : armors) {
@@ -201,11 +205,16 @@ void Detector::DetectLive(Mat &input) {
     if (closest_to_prev <= radius_scaler * prev_distance) {
         prev_center = final_armor.getCenter();
         prev_distance = final_armor.getDistance[0];
+		count_frames_no_robot = 0;
         // TODO return coordinate of detected result
-    } else {
+    } else if (count_frames_no_robot < max_frames_no_robot) {
+		count_frames_no_robot++;
+	}
+	else {
         // reset to defaults
         prev_center = Point2f(320, 256);
         prev_distance = 410;
+		count_frames_no_robot = 0;
     }
 
     input = raw;

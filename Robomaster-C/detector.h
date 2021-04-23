@@ -16,7 +16,7 @@ private:
     static cv::Mat* addr;
     cv::Point2f prev_center;
     double prev_distance;
-    double prev_area;
+	int count_frames_no_robot;
     Detector(cv::Mat* ptr) {
         addr = ptr;
     };
